@@ -33,10 +33,10 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	std::normal_distribution<double> dist_y(y, std[1]);
 	std::normal_distribution<double> dist_psi(theta, std[2]);
 
-	num_particles = 10;
+	num_particles = 2;
 
 	for(int i =0; i< num_particles; i++){
-		Particle p ={i,dist_x(gen),dist_y(gen),dist_psi(gen),1.0};
+		Particle p ={i,dist_x(gen),dist_y(gen),bound_angle(dist_psi(gen)),1.0};
 		particles.push_back(p);
 	}
 
@@ -52,11 +52,19 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
+
+	std::cout << "PREDICT\n";
+
+	std::cout << "before transform::::\n";
 	print_particles();
 	//for each particle, predict next position and direction
+
+	std::default_random_engine gen;
+
+	//update the particles position
 	for (auto & p: particles){
 		//if zero yaw_rate
-		if(abs(yaw_rate) < .00001f){
+		if(std::abs(yaw_rate) < .00001f){
 			p.x+=velocity*delta_t*cos(p.theta);
 			p.y+=velocity*delta_t*sin(p.theta);
 			//if the yaw isnt chaning then the yaw doesnt change: theta remains the same
@@ -66,12 +74,18 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 			p.theta+=yaw_rate*delta_t;
 		}
 
-		std::cout << "after transform::::\n";
-		print_particles();
 		//add noise
+		std::normal_distribution<double> dist_x(p.x, std_pos[0]);
+		std::normal_distribution<double> dist_y(p.y, std_pos[1]);
+		std::normal_distribution<double> dist_psi(p.theta, std_pos[2]);
 
+		p.x= dist_x(gen);
+		p.y= dist_y(gen);
+		p.theta= bound_angle(dist_psi(gen));
 	}
 
+	std::cout << "after transform::::\n";
+	print_particles();
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {

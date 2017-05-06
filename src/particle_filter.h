@@ -112,6 +112,16 @@ public:
 		* helper to display particles *
 	**/
 	void print_particles();
+
+	/**
+		* helper, makes sure angles are between a sensible range
+	**/
+	double bound_angle(double x){
+		double y = x;
+		while (y> M_PI) y-=2.*M_PI;
+	 	while (y<-M_PI) y+=2.*M_PI;
+		return y;
+	}
 };
 
 
