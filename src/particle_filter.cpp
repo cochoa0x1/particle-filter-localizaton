@@ -30,7 +30,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	std::normal_distribution<double> dist_y(y, std[1]);
 	std::normal_distribution<double> dist_psi(theta, std[2]);
 
-	num_particles = 20;
+	num_particles = 50;
 
 	for(int i =0; i< num_particles; i++){
 		Particle p ={i,dist_x(gen),dist_y(gen),dist_psi(gen),1.0};
