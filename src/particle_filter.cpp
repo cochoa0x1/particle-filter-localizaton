@@ -33,7 +33,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	std::normal_distribution<double> dist_y(y, std[1]);
 	std::normal_distribution<double> dist_psi(theta, std[2]);
 
-	num_particles = 2;
+	num_particles = 10;
 
 	for(int i =0; i< num_particles; i++){
 		Particle p ={i,dist_x(gen),dist_y(gen),bound_angle(dist_psi(gen)),1.0};
@@ -55,8 +55,8 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 	std::cout << "PREDICT\n";
 
-	std::cout << "before transform::::\n";
-	print_particles();
+	//std::cout << "before transform::::\n";
+	//print_particles();
 	//for each particle, predict next position and direction
 
 	std::default_random_engine gen;
@@ -84,8 +84,8 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		p.theta= bound_angle(dist_psi(gen));
 	}
 
-	std::cout << "after transform::::\n";
-	print_particles();
+	//std::cout << "after transform::::\n";
+	//print_particles();
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -93,6 +93,28 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
 	//   implement this method and use it as a helper during the updateWeights phase.
+
+	//assign predicted measurements to landmarks observation
+
+	for(auto & pred : predicted){
+
+			//get the nearest
+			LandmarkObs nearest;
+			double nearest_dist = std::numeric_limits<double>::max();
+
+			for( auto & obs : observations){
+				double dx = pred.x - obs.x;
+				double dy = pred.y - obs.y;
+				double d = sqrt(dx*dx+dy*dy);
+				if ( d < nearest_dist){
+					nearest_dist = d;
+					nearest = obs;
+				}
+
+				//assign it
+				pred = nearest;
+			}
+	}
 
 }
 
@@ -109,6 +131,60 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   3.33. Note that you'll need to switch the minus sign in that equation to a plus to account
 	//   for the fact that the map's y-axis actually points downwards.)
 	//   http://planning.cs.uiuc.edu/node99.html
+
+
+	//Transform each observation from vehicle to map coordinates
+	//Particle p = particles[0];
+
+	for(auto & p : particles){
+
+		long double total_log_weight =0.0;
+
+		for(auto & obs: observations){
+			LandmarkObs tobs = {obs.id, obs.x, obs.y};
+
+			//transform observations (car coordinates) as if they were taken in particle coordinates
+			//to map coordinates so we can match them to landmarks which are given in map coordinates
+			tobs.x = p.x+obs.x*cos(p.theta) -obs.y*sin(p.theta);
+			tobs.y = p.y+obs.x*sin(p.theta) +obs.y*cos(p.theta);
+
+			//find the landmark that matches up to this
+			Map::single_landmark_s nearest;
+			double nearest_dist = std::numeric_limits<double>::max();
+
+			for( auto & landmark : map_landmarks.landmark_list){
+				double dx = tobs.x - landmark.x_f;
+				double dy = tobs.y - landmark.y_f;
+				double d = sqrt(dx*dx+dy*dy);
+
+				if ( d < nearest_dist){
+					nearest_dist = d;
+					nearest = landmark;
+				}
+			}
+
+			//std::cout << "nearest: " << nearest.id_i << std::endl;
+			//calculate the log of the weight to avoid numerical issues
+
+			double ndx = tobs.x - nearest.x_f;
+			double ndy = tobs.y - nearest.y_f;
+
+			//std::cout << "ndx: " << ndx << " ndy: " << ndy << std::endl;
+
+			long double log_w = -1.0*log(2*M_PI*std_landmark[0]*std_landmark[1])
+					- ( (ndx*ndx)/(2*std_landmark[0]*std_landmark[0])
+						+ (ndy*ndy)/(2*std_landmark[1]*std_landmark[1])
+					);
+
+			//std::cout << "logw " << log_w <<  " totalw: " << total_log_weight << std::endl;
+
+			total_log_weight+=log_w;
+		}
+
+		p.weight = exp(total_log_weight);
+		//std::cout << "----->weight: " << p.weight <<  std::endl;
+	}
+
 }
 
 void ParticleFilter::resample() {
@@ -116,6 +192,32 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
+	//std::cout << "before resample: " << std::endl;
+	//print_particles();
+
+	//new vector of particles
+	std::vector<Particle> new_particles;
+
+	//make an array of weights
+ 	std::vector<double> ws;
+
+	for(auto & p: particles){
+		ws.push_back(p.weight);
+	}
+
+	std::default_random_engine gen;
+	std::discrete_distribution<> sampler(ws.begin(), ws.end());
+
+	for(int i=0; i< num_particles; i++){
+		//sample from our old particles
+		int idx = sampler(gen);
+		Particle p = particles[idx];
+		p.weight = 1.0; //reset the weight
+		new_particles.push_back(p);
+
+	}
+
+	particles = new_particles;
 }
 
 void ParticleFilter::write(std::string filename) {
