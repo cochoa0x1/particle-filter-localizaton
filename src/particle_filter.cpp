@@ -59,7 +59,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		if(std::abs(yaw_rate) < .00001f){
 			p.x+=velocity*delta_t*cos(p.theta);
 			p.y+=velocity*delta_t*sin(p.theta);
-			//if the yaw isnt chaning then the yaw doesnt change: theta remains the same
+			//if the yaw isnt changing then the yaw doesnt change: theta remains the same
 		}else{
 			p.x+=(velocity/yaw_rate)*(sin(p.theta+yaw_rate*delta_t)-sin(p.theta));
 			p.y+=(velocity/yaw_rate)*(cos(p.theta)-cos(p.theta+yaw_rate*delta_t));
